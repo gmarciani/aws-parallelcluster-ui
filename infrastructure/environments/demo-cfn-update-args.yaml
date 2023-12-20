@@ -7,9 +7,12 @@ Parameters:
   - ParameterKey: InfrastructureBucket
     ParameterValue: BUCKET_URL_PLACEHOLDER
   - ParameterKey: PublicEcrImageUri
-    ParameterValue: public.ecr.aws/pcm/parallelcluster-ui:latest
-#    Use the value below if you want to deploy the local image of PCUI.
-#    ParameterValue: ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/parallelcluster-ui:latest
+    ParameterValue: 063695377715.dkr.ecr.eu-west-1.amazonaws.com/parallelcluster-ui:latest
+  #    PublicEcrImageUri can be a repository in:
+  #      * Public ECR: must be used when deploying a released image. For this type, use the value:
+  #        public.ecr.aws/pcm/parallelcluster-ui:latest
+  #      * Private ECR: must be used when deploying a local image for testing. For this type, adapt and use the value:
+  #        ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/parallelcluster-ui:latest
   - ParameterKey: UserPoolId
     UsePreviousValue: true
   - ParameterKey: UserPoolAuthDomain
