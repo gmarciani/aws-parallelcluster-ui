@@ -219,10 +219,8 @@ Resources:
         Variables:
           API_BASE_URL: !GetAtt [ ParallelClusterApi, Outputs.ParallelClusterApiInvokeUrl ]
           API_VERSION: !Ref Version
-          SITE_URL: !Sub
-           - https://${Api}.execute-api.${AWS::Region}.${AWS::URLSuffix}/pcui
-           - Api: !Ref ApiGatewayRestApi
-          AUTH_PATH: !If [ UseExistingCognito, !Ref UserPoolAuthDomain, !GetAtt [ Cognito, Outputs.UserPoolAuthDomain ]]
+          SITE_URL: https://pcui-20240920-1.mgiacomo.ds9.nice.aws.a2z.com
+          AUTH_PATH: https://auth2.pcui-20240920-1.mgiacomo.ds9.nice.aws.a2z.com
           SECRET_ID: !GetAtt UserPoolClientSecret.SecretName
           AUDIENCE: !Ref CognitoAppClient
           OIDC_PROVIDER: 'Cognito'
@@ -371,9 +369,7 @@ Resources:
       ExplicitAuthFlows:
         - ALLOW_REFRESH_TOKEN_AUTH
       CallbackURLs:
-        - !Sub
-          - https://${Api}.execute-api.${AWS::Region}.${AWS::URLSuffix}/pcui/login
-          - Api: !Ref ApiGatewayRestApi
+        - https://pcui-20240920-1.mgiacomo.ds9.nice.aws.a2z.com/login
       SupportedIdentityProviders:
         - COGNITO
       UserPoolId: !If [ UseExistingCognito, !Ref UserPoolId, !GetAtt [ Cognito, Outputs.UserPoolId ]]
