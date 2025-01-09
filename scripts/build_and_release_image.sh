@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 USAGE="$(basename "$0") [-h] --tag YYYY.MM.REVISION [--ecr-region REGION, defaults to 'us-east-1'] [--ecr-endpoint PUBLIC_ECR ENDPOINT, defaults to 'public.ecr.aws/pcm']"
 
