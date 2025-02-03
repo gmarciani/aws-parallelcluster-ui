@@ -225,6 +225,24 @@ Resources:
       TemplateURL: !Sub https://${AWS::Region}-aws-parallelcluster.s3.${AWS::Region}.amazonaws.com/parallelcluster/${Version}/api/parallelcluster-api.yaml
       TimeoutInMinutes: 30
 
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub
+        - aws-parallelcluster-ui-${StackIdSuffix}
+        - { StackIdSuffix: !Select [ 2, !Split [ '/', !Ref 'AWS::StackId' ] ] }
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
   ParallelClusterUIFun:
     Type: AWS::Lambda::Function
     Properties:
@@ -263,6 +281,7 @@ Resources:
             - UseCustomDomain
             - !FindInMap [ ParallelClusterUI, Constants, CustomDomainBasePath ]
             - !Ref AWS::NoValue
+          BUCKET: !Ref Bucket
       FunctionName: !Sub
         - ParallelClusterUIFun-${StackIdSuffix}
         - { StackIdSuffix: !Select [2, !Split ['/', !Ref 'AWS::StackId']] }
@@ -832,13 +851,14 @@ Resources:
               Service: lambda.amazonaws.com
       ManagedPolicyArns:
         # Required for Lambda logging and XRay
-        - !Sub arn:${AWS::Partition}:iam::aws:policy/AWSXRayDaemonWriteAccess
+#        - !Sub arn:${AWS::Partition}:iam::aws:policy/AWSXRayDaemonWriteAccess
         - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-        # Access to the ParllelCluster API
+        # Access to the ParallelCluster API
         - !Ref ParallelClusterApiGatewayInvoke
         # Required to run ParallelClusterUI functionalities
         - !Ref CognitoPolicy
         - !Ref EC2Policy
+        - !Ref S3Policy
         - !Ref DescribeFsxPolicy
         - !Ref DescribeEfsPolicy
         - !Ref CostMonitoringAndPricingPolicy
@@ -951,6 +971,24 @@ Resources:
               Effect: Allow
               Sid: PrivateDeploymentReadPolicy
             - !Ref AWS::NoValue
+
+  S3Policy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub
+        - ${IAMRoleAndPolicyPrefix}S3Policy-${StackIdSuffix}
+        - { StackIdSuffix: !Select [ 0, !Split [ '-', !Select [ 2, !Split [ '/', !Ref 'AWS::StackId' ] ] ] ] }
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - s3:GetObject
+              - s3:ListBucket
+            Resource:
+              - !Sub arn:${AWS::Partition}:s3:::${Bucket}
+              - !Sub arn:${AWS::Partition}:s3:::${Bucket}/*
+            Effect: Allow
+            Sid: S3ReadPolicy
 
   DescribeFsxPolicy:
     Type: AWS::IAM::ManagedPolicy

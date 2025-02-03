@@ -47,6 +47,7 @@ AUTH_URL = os.getenv("AUTH_URL", f"{AUTH_PATH}/login")
 JWKS_URL = os.getenv("JWKS_URL")
 AUDIENCE = os.getenv("AUDIENCE")
 USER_ROLES_CLAIM = os.getenv("USER_ROLES_CLAIM", "cognito:groups")
+BUCKET = os.getenv("BUCKET")
 
 try:
     if (not USER_POOL_ID or USER_POOL_ID == "") and SECRET_ID:
@@ -247,6 +248,48 @@ def get_cluster_config():
     return get_cluster_config_text(request.args.get("cluster_name"), request.args.get("region"))
 
 
+import re
+
+def parse_s3_https_url(s3_https_url: str):
+    # Match URLs of the form https://s3.<region>.amazonaws.com/<bucket>/<key>
+    pattern = r"https://s3\.(.*?)\.amazonaws\.com/(.*?)/(.*)"
+
+    match = re.match(pattern, s3_https_url)
+
+    if match:
+        region, bucket, key = match.groups()
+        return region, bucket, key
+
+    raise RuntimeError(f"Cannot parse S3 HTTPS URL: {s3_https_url}")
+
+def read_s3_object(bucket_name, object_key, aws_region=None):
+    """
+    Reads the content of an object stored in an S3 bucket.
+
+    Args:
+        bucket_name (str): The name of the S3 bucket.
+        object_key (str): The key (path) of the object within the bucket.
+        aws_region (str, optional): AWS region for the S3 client (default: None).
+
+    Returns:
+        str: The content of the S3 object as a string.
+    """
+    # Initialize S3 client
+    s3_client = boto3.client('s3', region_name=aws_region)
+
+    try:
+        # Get the object from S3
+        response = s3_client.get_object(Bucket=bucket_name, Key=object_key)
+
+        # Read and decode the object's content
+        content = response['Body'].read().decode('utf-8')
+
+        return content
+    except Exception as e:
+        print(f"Error reading S3 object {bucket_name}/{object_key}: {e}")
+        return None
+
+
 def ssm_command(region, instance_id, user, run_command):
     # working_directory |= f"/home/{user}"
     start = time.time()
@@ -264,9 +307,14 @@ def ssm_command(region, instance_id, user, run_command):
         DocumentName="AWS-RunShellScript",
         Comment=f"Run ssm command.",
         Parameters={"commands": [command]},
+        OutputS3Region=REGION,
+        OutputS3BucketName=BUCKET,
+        OutputS3KeyPrefix=f"pcui/ssm/{region}",
     )
 
     command_id = ssm_resp["Command"]["CommandId"]
+
+    logger.info(f"Submitted SSM command {command_id}")
 
     # Wait for command to complete
     time.sleep(0.75)
@@ -282,7 +330,12 @@ def ssm_command(region, instance_id, user, run_command):
     if status["Status"] != "Success":
         raise Exception(status["StandardErrorContent"])
 
-    output = status["StandardOutputContent"]
+    region, bucket, key = parse_s3_https_url(status["StandardOutputUrl"])
+
+    logger.info(f"Reading SSM output from S3: {bucket}/”{key}")
+
+    output = read_s3_object(bucket, key, region)
+
     return output
 
 
@@ -403,6 +456,8 @@ def queue_status():
         user,
         "squeue --json | jq .jobs\\|\\map\\({name,nodes,partition,job_state,job_id,time\\}\\)",
     )
+
+    logger.warning(f"MGIACOMO queue_status - jobs={jobs}")
 
     return {"jobs": []} if jobs == "" else {"jobs": json.loads(jobs)}
 
